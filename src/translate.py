@@ -2,11 +2,14 @@ import gc
 import json
 import os
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from typing import Tuple
 
 import requests
 import torch
 import whisperx
 from dotenv import load_dotenv
+
+from .model import llm_translation
 
 load_dotenv()
 
@@ -63,27 +66,12 @@ def translate_content(content: str) -> dict:
     Raises:
         requests.exceptions.RequestException: If the request to the translation service fails.
     """
-    url = "https://localhost:5000/translate"
-    payload = {"q": content, "source": "auto", "target": "en"}
+    url = "http://localhost:5000/translate"
+    payload = {"q": content, "source": "auto", "target": "pt"}
     headers = {"Content-Type": "application/json"}
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     return response.json()
-
-
-def load_model(model_name: str, device: str, compute_type: str) -> object:
-    """
-    Load the WhisperX model.
-
-    Args:
-        model_name (str): The name of the model to load.
-        device (str): The device to use for loading the model (e.g., 'cuda' or 'cpu').
-        compute_type (str): The computation type to use (e.g., 'float16').
-
-    Returns:
-        object: The loaded WhisperX model.
-    """
-    return whisperx.load_model(model_name, device, compute_type=compute_type)
 
 
 def transcribe_audio(model: object, audio_file: str, batch_size: int) -> tuple:
@@ -115,38 +103,7 @@ def clear_cuda_memory(model: object = None) -> None:
     torch.cuda.empty_cache()
 
 
-def load_alignment_model(language_code: str, device: str) -> object:
-    """
-    Load the alignment model for the specified language.
-
-    Args:
-        language_code (str): The language code for the model (e.g., 'en' for English).
-        device (str): The device to use for loading the model.
-
-    Returns:
-        object: The loaded alignment model.
-    """
-    return whisperx.load_align_model(language_code=language_code, device=device)
-
-
-def align_segments(model_a: object, result: dict, audio: object, device: str) -> dict:
-    """
-    Align the transcribed segments using the alignment model.
-
-    Args:
-        model_a (object): The loaded alignment model.
-        result (dict): The transcription result containing segments.
-        audio (object): The audio data for alignment.
-        device (str): The device to use for processing.
-
-    Returns:
-        dict: The aligned segments.
-    """
-    metadata = model_a.metadata
-    return whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
-
-
-def generate_srt_content(segments: list) -> str:
+def generate_srt_content(segments: list) -> Tuple[str]:
     """
     Generate SRT formatted content from the transcribed segments.
 
@@ -156,15 +113,18 @@ def generate_srt_content(segments: list) -> str:
     Returns:
         str: The generated SRT content.
     """
-    srt_content = ""
+    translated_srt_content = ""
+    original_srt_content = ""
+    text_to_translate = [segment["text"].strip() for segment in segments]
+    translated_text = llm_translation(text_to_translate)
+
     for idx, segment in enumerate(segments, start=1):
         start_time = seconds_to_srt_time(segment["start"])
         end_time = seconds_to_srt_time(segment["end"])
-        text = segment["text"].strip()
-        translated_text = translate_content(text)
 
-        srt_content += f"{idx}\n{start_time} --> {end_time}\n{translated_text}\n\n"
-    return srt_content
+        translated_srt_content += f"{idx}\n{start_time} --> {end_time}\n{translated_text['translations'][idx-1]}\n\n"
+        original_srt_content += f"{idx}\n{start_time} --> {end_time}\n{text_to_translate[idx-1]}\n\n"
+    return translated_srt_content, original_srt_content
 
 
 def save_srt_file(srt_content: str, file_name: str) -> None:
@@ -179,7 +139,7 @@ def save_srt_file(srt_content: str, file_name: str) -> None:
         file.write(srt_content)
 
 
-def translate(file_path: str) -> None:
+def translate(file_path: str, save_dir: str = None) -> None:
     """
     Execute the audio transcription, alignment, and SRT generation process for a given audio file.
 
@@ -198,23 +158,31 @@ def translate(file_path: str) -> None:
     batch_size = 8
     compute_type = "float16"
 
-    model = load_model("large-v2", device, compute_type)
-    result, audio = transcribe_audio(model, file_path, batch_size)
+    model = whisperx.load_model("large-v2", device, compute_type=compute_type)
+    audio = whisperx.load_audio(file_path)
+    result = model.transcribe(audio, batch_size=batch_size)
     clear_cuda_memory(model)
 
-    model_a = load_alignment_model(result["language"], device)
-    result = align_segments(model_a, result, audio, device)
+    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
+    result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
     clear_cuda_memory(model_a)
 
     diarize_model = whisperx.DiarizationPipeline(use_auth_token=os.getenv("HF_TOKEN"), device=device)
     diarize_segments = diarize_model(audio)
+    clear_cuda_memory(diarize_model)
 
     result = whisperx.assign_word_speakers(diarize_segments, result)
 
-    srt_content = generate_srt_content(result["segments"])
-    save_srt_file(srt_content, "subtitles.srt")
+    translated_srt_content, original_srt_content = generate_srt_content(result["segments"])
+    save_translated_str_path = "translated_subtitles.srt"
+    save_original_str_path = "original_subtitles.srt"
+    if save_dir is not None:
+        save_translated_str_path = save_dir + "/" + save_translated_str_path
+        save_original_str_path = save_dir + "/" + save_original_str_path
+    save_srt_file(translated_srt_content, save_translated_str_path)
+    save_srt_file(original_srt_content, save_original_str_path)
 
-    print("SRT file generated successfully.")
+    print("SRT files generated successfully.")
 
 
 def main():

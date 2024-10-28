@@ -3,13 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tradução de Videos</title>
+    <title>File Upload with Translation</title>
 </head>
 <body>
-    <h1>Traduzir Video</h1>
-    <form action="/" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" required>
-        <button type="submit">Legendar</button>
+    <h1>Upload File for Translation</h1>
+    <form id="uploadForm">
+        <input type="file" name="file" id="fileInput" required />
+        <button type="submit">Upload</button>
     </form>
+    <p id="message"></p>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById("fileInput");
+            const message = document.getElementById("message");
+
+            if (fileInput.files.length === 0) {
+                message.innerText = "Please select a file to upload.";
+                return;
+            }
+
+            message.innerText = "Translation in Progress...";
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            fetch("/upload", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Translation failed.");
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = downloadUrl;
+                link.download = "translated_subtitles.zip";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+
+                message.innerText = "Translation Completed";
+            })
+            .catch(error => {
+                message.innerText = "Error: " + error.message;
+            });
+        });
+    </script>
 </body>
 </html>
