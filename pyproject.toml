@@ -1,0 +1,27 @@
+[project]
+name = "LocalVideoTranslator"
+requires-python = ">=3.10"
+dependencies = [
+    "Flask==3.0.3",
+    "torch==2.0.0",
+    "torchvision==0.15.1",
+    "torchaudio==2.0.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.3", "pre-commit==4.0.1", "ruff==0.7.1"]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+
+[tool.pytest.ini_options]
+addopts = "--verbose"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["src"]
