@@ -1,10 +1,14 @@
 import gc
 import json
+import os
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 import requests
 import torch
 import whisperx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def get_args():
@@ -202,7 +206,7 @@ def translate(file_path: str) -> None:
     result = align_segments(model_a, result, audio, device)
     clear_cuda_memory(model_a)
 
-    diarize_model = whisperx.DiarizationPipeline(use_auth_token="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", device=device)
+    diarize_model = whisperx.DiarizationPipeline(use_auth_token=os.getenv("HF_TOKEN"), device=device)
     diarize_segments = diarize_model(audio)
 
     result = whisperx.assign_word_speakers(diarize_segments, result)
