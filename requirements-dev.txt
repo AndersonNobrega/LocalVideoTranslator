@@ -1,4 +1,0 @@
--r requirements.txt
-pytest==8.3.3
-pre-commit==4.0.1
-ruff==0.7.1
