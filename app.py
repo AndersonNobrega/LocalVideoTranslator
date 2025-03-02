@@ -3,7 +3,7 @@ import socket
 
 from flask import Flask, after_this_request, jsonify, render_template, request, send_file
 
-from src.translate import translate
+from src.translate import translate_file
 from src.utils.files import cleanup_upload_folder, create_zip_file, save_uploaded_file
 
 app = Flask(__name__)
@@ -46,7 +46,7 @@ def upload_file():
     file_path = save_uploaded_file(file, app.config["UPLOAD_FOLDER"])
 
     # Perform translation processing
-    translate(file_path, app.config["UPLOAD_FOLDER"])
+    translate_file(file_path, app.config["UPLOAD_FOLDER"], True)
 
     # Prepare files for download
     srt_files = ["translated_subtitles.srt", "original_subtitles.srt"]
