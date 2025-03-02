@@ -1,33 +1,46 @@
 import json
 
-from llama_cpp import Llama
+from ollama import chat
+from pydantic import BaseModel
+
+
+class TextTranslations(BaseModel):
+    translations: list[str]
 
 
 def llm_translation(text):
-    llm = Llama(
-        model_path="/home/anderson/Documents/LLM_Model/Qwen2.5-14B-Instruct-Q5_K_M.gguf",
-        n_gpu_layers=20,
-        n_ctx=2048,
-        verbose=False,
-    )
-
-    prompt = f"""
-    Translate the following text from portuguese to brazillian portuguese: {text}.
-    
-    Output the translation in the following JSON format:
-    
-    {{
+    output = """
+    {
         "translations": [
-            "translated_text1", "translated_text2"
+            "translated_text1", 
+            "translated_text2"
         ]
-    }}
-
-    
-    Review your output to make sure it follows the specific output structure.
-    Try to identify nuances in the original text and correctly translate it to brazillian language.
+    }
     """
 
-    response = llm.create_chat_completion(
+    prompt = f"""
+    Translate the following text from **Portuguese** to **Brazilian Portuguese**:
+
+    {text}
+
+    ### Output Format:
+    Ensure the translation follows this **JSON structure**:
+    {output}
+
+    ### Output Schema:
+    {TextTranslations.model_json_schema()}
+
+    ### Guidelines:
+    - Maintain the original meaning while adapting to **Brazilian Portuguese** nuances.
+    - Use **natural and fluent** language suitable for Brazilian speakers.
+    - **Strictly** adhere to the specified output format.
+    - Double-check the output to ensure it follows the required JSON structure.
+
+    Return only the JSON output—no additional explanations.
+    """
+
+    response = chat(
+        model="qwen2.5:latest",
         messages=[
             {
                 "role": "system",
@@ -35,9 +48,8 @@ def llm_translation(text):
             },
             {"role": "user", "content": prompt},
         ],
-        response_format={"type": "json_object"},
-        temperature=0.5,
-        top_p=0.95,
+        format=TextTranslations.model_json_schema(),
+        options={"temperature": 0.5, "top_p": 0.95},
     )
 
-    return json.loads(response["choices"][0]["message"]["content"])
+    return json.loads(response["message"]["content"])
