@@ -3,13 +3,14 @@ import socket
 
 from flask import Flask, after_this_request, jsonify, render_template, request, send_file
 
-from src.translate import translate_file
-from src.utils.files import cleanup_upload_folder, create_zip_file, save_uploaded_file
+from translate import translate_file
+from utils.constants import ROOT_PATH
+from utils.files import cleanup_upload_folder, create_zip_file, save_uploaded_file
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(ROOT_PATH.joinpath("./templates")))
 
 # Set the upload folder
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = ROOT_PATH.joinpath("./uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Configure Flask to save uploaded files

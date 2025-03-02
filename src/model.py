@@ -7,7 +7,7 @@ def llm_translation(text):
     llm = Llama(
         model_path="/home/anderson/Documents/LLM_Model/Qwen2.5-14B-Instruct-Q5_K_M.gguf",
         n_gpu_layers=20,
-        n_ctx=4096,
+        n_ctx=2048,
         verbose=False,
     )
 
@@ -36,7 +36,7 @@ def llm_translation(text):
             {"role": "user", "content": prompt},
         ],
         response_format={"type": "json_object"},
-        temperature=0.9,
+        temperature=0.5,
         top_p=0.95,
     )
 
