@@ -24,7 +24,7 @@
 4. Activate the environment and install the dependencies from the `requirements-dev.txt` file:
     ```
     source <env_name>
-    pip install -r requirements-dev.txt
+    pip install ".[dev]"
     ```
 
 5. Install `pre-commit` before pushing any changes to git:
